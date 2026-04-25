@@ -1,0 +1,973 @@
+DISPLIB: a library of train dispatching problems
+Oddvar Kloster, Bjørnar Luteberget, Carlo Mannino, Giorgio Sartor
+Abstract
+Optimization-based decision support systems have a significant potential to reduce delays, and
+thus improve efficiency on the railways, by automatically re-routing and re-scheduling trains after
+delays have occurred. The operations research community has dedicated a lot of effort to de-
+veloping optimization algorithms for this problem, but each study is typically tightly connected
+with a specific industrial use case. Code and data are seldom shared publicly. This fact hinders
+reproducibility, and has led to a proliferation of papers describing algorithms for more or less
+compatible problem definitions, without any real opportunity for readers to assess their relative
+performance. Inspired by the successful communities around MILP, SAT, TSP, VRP, etc., we
+introduce a common problem definition and file format, DISPLIB, which captures all the main
+features of train re-routing and re-scheduling. We have gathered problem instances from multiple
+real-world use cases and made them openly available. In this paper, we describe the problem defi-
+nition, the industrial instances, and a reference solver implementation. This allows any researcher
+or developer to work on the train dispatching problem without an industrial connection, and en-
+ables the research community to perform empirical comparisons between solvers. All materials
+are available online athttps://displib.github.io.
+1. Introduction
+The trains traveling on a railway network typically follow a strict timetable. However, when
+unexpected delays happen, train dispatchers need to re-route and re-schedule the trains to prevent
+delays from propagating to other trains. The current practice in the railway industry is that a
+group of dispatchers, typically located in a central control room, handle the decision-making
+manually. This work is notoriously difficult when there are major disturbances in the traffic, and
+the decisions made in stressful situations will often be sub-optimal.
+In the last ten years, digitalization of railways have progressed to the point where most railway
+operators now have sensors and computer systems to keep track of where trains are at any point
+in time, and some operators also have graphical user interfaces for managing real-time updates
+to timetables. With this digital infrastructure in place, there is every opportunity to make use
+of algorithmic decision support for dispatchers, which could alleviate some of the workload for
+dispatchers and result in more optimal re-routing and re-scheduling decisions. And indeed, quite
+a lot of academic and industrial research efforts have gone into developing algorithms that are able
+to solve train dispatching optimization problems. Algorithms based on mixed-integer linear pro-
+gramming (MILP) are the most common, but most of the methods from the optimization toolbox
+have been applied, including heuristics, local search, branch and bound, constraint programming,
+Boolean satisfiability, reinforcement learning, decompositions, and more (see the surveys [2, 8, 16]).
+Solving train dispatching optimization problems have proven to be hard, both theoretically
+and in practice. Theoretically, the problem is NP-hard [19], even when limited to find a feasible
+solution. Also, in terms of algorithm implementation, none of the scientific papers published on
+this topic has been able to provide an algorithm that handles all relevant problem instances and
+gives high-quality solutions in the short amount of time available in the real-time setting. Indeed,
+in industrial deployments, combinations of exact methods and heuristics, applied on decomposi-
+tions at different time/space scales, are currently required to achieve state-of-the-art scalability
+[1]. Further improvements in solution methods are highly desired by the industry, so that train
+arXiv:2509.12254v1  [cs.AI]  12 Sep 2025
+dispatching optimization can be applied more easily and in a wider range of situations. Further-
+more, the train dispatching problem also takes the role as a sub-problem problem in a host of other
+railway planning problems which are influenced by decisions about routing and scheduling. This
+includes strategic timetabling [23], short-term timetabling [13, 15], line planning [25], rolling stock
+rotation [17], etc. All of these problems would benefit from advances in optimization techniques
+for the core routing and scheduling problem, i.e., the train dispatching problem.
+Comparing the situation in the science of train dispatching to the communities around other
+optimization problems, such as the vehicle routing problem (VRP), may provide some insight
+into how the academic community should organize in order to make more progress and have
+more impact. VRP was first introduced in the scientific literature in 1959 [6], at which time
+only the tiniest problem instances could be solved with any expectation of producing solutions
+of decent quality. Compare this with today’s situation, where industrial software developers can
+easily procure mature software libraries such as PyVRP and Google OR-Tools and set up solvers
+for highly customized problem variants, often achieving near-optimal solutions even for large-
+scale instances. In the 1980s and ’90s, several influential VRP researchers published sets of hard
+VRP problem instances. These instances became standard benchmarks, and authors of papers
+presenting new algorithmic developments were expected to demonstrate performance by reporting
+the results they had achieved on these instances. The existence of a hard measure of algorithm
+performance spurred quite a bit of healthy competition, and made it easy for researchers to
+demonstrate to their colleagues how good their algorithms were.
+Impressive algorithmic progress has happened in several other communities where such a stan-
+dard for benchmarking has been central, e.g., mixed-integer linear programming [9], Boolean
+satisifability [10], and traveling salesman problem [22]. We believe that facilitating such compar-
+isons can have a great positive impact on scientific progress, and that progress in train dispatching
+algorithms is currently impeded by the lack of such a standard for benchmarking. There have
+been some benchmarking efforts centered around competitions, such as the Informs RAS Problem
+Solving Competitions [11], the Flatland Challenge [20], and the SBB Train Schedule Optimisation
+Challenge [12]. These efforts were not aimed to create a general benchmarking framework for
+realistic and diverse problem instances, but were based on specific case studies, with few prob-
+lem instances, and using more ad-hoc file formats. And indeed, very few papers suggesting new
+train dispatching methods use these problem instances to demonstrate algorithmic performance
+characteristics.
+To improve on this situation, we are in this paper proposing a problem definition called
+DISPLIB that encompasses most important features of train re-routing and re-scheduling prob-
+lems, while still being simple enough that minimal domain knowledge of railway operations is
+required to understand it, and that algorithmic ideas can be implemented without getting hin-
+dered by an inordinately complex problem representation. The intention is not necessarily that
+industrial applications should use exactly this problem definition, but that the problem definition
+is close enough to relevant industrial problems, so that progress in solving DISPLIB problems will
+translate into progress in train dispatching optimization in general.
+We have also gathered a diverse set of problem instances from railway infrastructure managers
+from multiple countries to form the first version of the DISPLIB benchmark instance set, called
+DISPLIB 2025. To create awareness and interest, we held a competition, running from October
+2024 to April 2025, to encourage the train dispatching research community to come up with a
+general algorithm working for all the problem instances. Many great contributions were submitted,
+but only a few managed to create algorithms that could produce feasible solutions to all the
+instances, and there are still many problem instances for which no optimal solution was found.
+This confirms that the DISPLIB 2025 is a challenging set of benchmark instances that can be
+used by researchers in the coming years to create easily comparable and reproducible performance
+results. In the future, we intend to continue gathering problem instances to cover a wider range of
+applicationcontexts. Also, ifthecommunitycomesupwithalgorithmsthancansolvetheinstances
+of DISPLIB 2025 to near-optimality within a short amount of time, we also hope to gather and
+provide even harder problem instances to spur continued progress in the field in a future version of
+the benchmark library. File downloads are available online athttps://displib.github.io, and
+2
+o1
+δ1 = 5, β1 = 0
+Ψ1 ={(R 1,0)}
+o2
+δ2 = 0
+Ψ2 =
+{(R1,3),(R 2,5)}
+o3
+δ3 = 0
+Ψ3 =
+{(R1,2),(R 3,4)}
+o4
+δ4 = 5,α 4 = 5
+Ψ4 ={(R 4,2)}
+o5
+δ5 = 0
+Ψ5 ={(R 5,2)}
+o6
+δ6 = 0
+Ψ6 ={(R 6,3)}
+o7,δ 7 = 0
+β7 = 10
+Ψ7 =∅
+entry op. exit op.
+Figure 1: A train operation graph. The boxes represent operationoi, fori= 1, . . . ,7, labeled with a minimum
+duration (δi), upper and lower bounds (αi,β i) and a setΨi of resources from the setR={R 1, R2, . . .}to which it
+needs exclusive access with corresponding release times. Some parameters are left out to simplify the presentation
+(assumeα= 0,β=∞,λ= 0where omitted). The green nodeo 1 is the entry operation (it has no incoming edges),
+and the red node labeledo7 is the exit operation (it has no outgoing edges). An example of a route for this train
+would be the sequenceπ=⟨o 1, o2, o4, o6, o7⟩.
+future updates to the set of benchmark instances and competition details will be posted there.
+2. The DISPLIB problem definition
+In this section, we will define the DISPLIB routing and scheduling problem and then show
+how it is suitable for modelling real-time train dispatching problem instances.
+LetIbe a set of trains. Each traini∈Iperforms a sequence of operationsπ i selected from
+a setO i =
+
+oi
+1, oi
+2, . . . , oi
+ni
+	
+ofn i potential operations. This sequence must start with theentry
+operation,o i
+1 ∈O i, and end with theexit operation,oi
+ni. A successor relationSi ⊂O i ×O i restricts
+which pairs(oi
+a, oi
+b)∈S i are allowed to be immediate successors inπi.S i defines a directed acyclic
+graph, and the sequenceπi must thus be a path in this graph starting fromoi
+1 and ending inoi
+ni
+(see Figure 1). Such a sequenceπi is called aroutefor the traini.
+For each operationo i
+a ∈O i, there is a specified minimum durationδi
+a ≥0, a lower bound
+αi
+a ≥0, and an upper boundβ i
+a ≥0. Given a specific routeπ i, we associate with each operation
+oi
+a ∈π i astart timet i
+a. An operation ends when the next operation in the train’s path starts,
+i.e., for any pair of consecutive operationso i
+a ando i
+b inπ i, we denote the successor operation
+oi
+a+ =o i
+b and define theend timeofo i
+a ast i
+a+ =t i
+b (for the last operation in the sequence, we
+definet i
+a+ =∞). Then, for eacho i
+a ∈π i, we require:
+αi
+a ≤t i
+a ≤β i
+a andt i
+a +δ i
+a ≤t i
+a+ .
+Such values ofti
+a associated with eachoi
+a ∈π i define aschedulefor the trainiwith routeπ i.
+Additionally, each operation may require exclusive access to one or more resources. We denote
+withRthe set of all resources. Then, with each each operationoi
+a, we associate a set of resource
+requirementsΨ i
+a ={. . . ,(r, λ), . . .}, wherer∈ Ris a resource required by the operation and
+λ∈Ris a release time. The resource is occupied by the operation from the start of the operation
+and untilλtime units after the end of the operation.
+Combiningtheroutesandschedulesofalltrains, wedefineasolutionasasequenceofoperations
+and their corresponding start times, ordered chronologically,
+Π =⟨. . . ,(o, t), . . .⟩
+Denote byη(oi
+a)the position ofo i
+a in the sequenceΠ. Ifoi
+a is the last operation inπi, we define
+η(oi
+a+) =∞. Then we can give the following definition:
+Definition 1.Feasible solution.A solutionΠis feasible if:
+1.For each traini∈I, the subsequence ofΠof the operations⟨o i
+a, oi
+b, . . .⟩fromO i, is a route
+πi, and the corresponding timesti
+a, ti
+b, . . .define a schedule forπ i;
+3
+2.For any pair of operationso i
+a, oj
+b ∈Π, withη(o i
+a)< η(o j
+b)andi̸=j, and for any pair
+(r, λ)∈Ψ i
+a and(r ′, λ′)∈Ψ j
+b withr=r ′, we have:
+η(oi
+a+)< η(o j
+b),andt i
+a+ +λ≤t j
+b.
+In other words, we are asking that: (1) each train is routed and scheduled correctly, inde-
+pendently of the other trains; (2) for every pair of operations (of different trains) that requires
+the same resource, then the operation that appears first in the solution must terminate, and the
+release time must elapse, before the other operation starts.
+Note that if all the durationsδand release timesλwere strictly positive, it would not be
+necessary to describe the ordering of operationsΠexplicitly, since any ordering by non-decreasing
+start times would be correct. However, to ensure correctness even when allowing instantaneous
+operations (δ= 0) or instantaneous release (λ= 0), the solution must be specified as a globally
+ordered sequence of operations. This can be convenient in macroscopic railway models (see Sec-
+tion 2.1), and allows the problem definition to accommodate real-world problems from a more
+diverse set of sources.
+The cost of a solution is defined as the sumZ(Π) =P
+c∈C z(c,Π)over a setCof objective
+components, wherez(·)is a measure of the delay of a componentcj with respect to the current
+solutionΠand each componentc= (o i
+a, ¯t, γ, ζ)defines a linear function associated with the start
+timet i
+a of a specific operation operationoi
+a ∈O i,i∈I. We definez(·) = 0if the operationo i
+a
+is not in the routeπi. Otherwise, the measurez(·)is defined by a threshold ¯t, after which the
+train is delayed and incurs a costγproportional to the length of the delay, or a constant costζ,
+or both:
+z(c,Π) =
+(
+γ·max
+
+0, ti
+a − t
+	
++ζ·H(t i
+a − t)ifo i
+a ∈π i
+0otherwise.
+Here,H(t)is the step function, i.e.,H(t) = 0ift <0, andH(t) = 1ift≥0. This allows for a
+combination of different piecewise linear functions (see Figure 3).
+Definition 2.Optimal solution.A solutionΠis optimal if it feasible and the total costZ(Π)
+is the minimum among all feasible solutions.
+A JSON file format for the input and output data used in this problem definition is described
+in Appendix A. Note that in the JSON format, all numerical parameters are restricted to have
+integer values, to avoid any issues related to numerical accuracy. In most railway applications,
+time values and durations are described in seconds, so using the time unit of 1 second will typically
+be sufficiently precise for describing the problem instances encountered in practice.
+2.1. Real-time train dispatching as a DISPLIB problem
+The definitions above are motivated by the practical needs to model real-time train dispatching
+problems. We will now show an example of how to define the set of resourcesR, and then the set
+of operationsO i for a traini.
+Thesignaling block system(orfixed-block signaling) is a safety system used in most railway
+operations around the world today. The basic principle is that the railway tracks are divided into
+a set ofblock sections, which are sections of the infrastructure that are only allowed to be occupied
+by one train at a time. We will use resources to represent such block sections. Depending on the
+application context, the block sections may correspond directly to the track circuits used by the
+control system to detect trains, or they may represent more approximate regions, such as the main
+and siding tracks used for meeting and overtaking, as illustrated in Figure 2.
+A dispatching problem instance is limited in scope to a dispatching region, i.e., some connected
+subset of a railway network. We assume that we can disregard the part of the railway network that
+lies outside the dispatching region. Now, we imagine that the train in Figure 2 has not started
+traveling yet. This means that it is currently either parked at a depot, or is traveling somewhere
+outside the dispatching region. Assume also that the train is planned to start (e.g. from the official
+4
+R1
+R2 R3
+R4
+R5 R6
+R7
+R8
+Figure 2: Railway infrastructure divided into block sections (R1, R2, . . .) and a train, starting fromR2, traveling
+through the infrastructure to end up inR8.
+timetable) at some time¯t0 in the future from the platform represented by the resourceR2, and we
+allow the start time to be postponed. Then, the entry operationo1 hasα 1 = ¯t0 andβ=∞, and
+Ψ1 ={(r 1, λ1)}using resourcer 1 =R 2. The release timeλ1 represents the minimum lap between
+when the train starts its next operation (which will be traveling onR3), and when another train
+may start an operation occupyingR2, and it is often computed as the length of the train divided
+by its nominal speed. The minimum durationδ1 represents the time that the train would use to
+travel through the sectionR2.
+Note that in some application contexts where a macroscopic view of the schedule is desired, it
+may be reasonable to useλ1 = 0, and evenδ1 = 0. As an example, a northbound train might arrive
+from a single-track section into a station at 12:00 while another southbound train is scheduled to
+depart from the same station at 12:00 on the same single-track section. Taken literally, these
+trains would need to be infinitesimally short for these events to both happen at 12:00. However,
+this type of model appears in real-world applications, and it would cause inconvenient cascading
+changes to the timetable if one would add physically accurate release times.
+Continuing with the other sections, we construct operationso 2, o3, o4, o5, o6 for traversing
+R3, R4, R5, R6, R8, respectively. Typically,α= 0for most of the operations, but for passen-
+ger trains there might be earliest departure times from the stations (since it would not be allowed
+to leave earlier than the official timetable time), which would be applied by settingαvalues for
+the operations usingR3 andR 6.
+To allow the train to leave the infrastructure afterR8, i.e., if the train goes to a depot or leaves
+the dispatching region, we add a dummy exit operationo7 withΨ 7 =∅. Finally, we define the
+successor relation,
+Si ={(o 1, o2),(o 2, o3),(o 2, o4),(o 3, o5),(o 4, o5),(o 5, o6),(o 6, o7)},
+describing the routes that the train can take. Observe thatSi defines the arcs of a directed acyclic
+graph with verticesOi, and that there is a unique node (operation)o1 with no predecessors and
+a unique node (operation)o7 with no successors. To define the cost associated with the train, we
+add an objective componentc= (o 6, ¯t, γ, ζ)toCassociated with the operationo 6 when the train
+arrives to its final destination. We set¯tto the official timetable time (when the train was planned
+to arrive inR8) and letγ= 1andζ= 0.
+Following this procedure for all relevant trains in the dispatching region, we get a complete
+DISPLIB problem instance, but there are a few more important features of dispatching that should
+be taken into account:
+•Some trains have already started traveling in the dispatching region. For example, if the
+train in Figure 2 has already reachedR4, then we reorganize the operations so that the
+operationo 5 corresponding toR 4 becomes the new entry operation. Other operations that
+are not reachable throughSi fromo 5 are removed fromOi andS i. The new entry operation
+will then haveβ= 0(it starts immediately), and the minimum durationδis reduced by an
+amount corresponding to the time that has already elapsed since the train started traveling
+onR 4.
+•The cost function may have a more complex dependency on the arrival time of a train at its
+final destination. Piecewise linear functions have been used in many applications (see, for
+example, [3, 14]). To implement the piecewise linear function shown on the left in Figure 3,
+5
+time
+cost
+¯t ¯t+ 180 ¯t+ 360
+time
+cost
+¯t
+1
+2
+3
+¯t+ 180 ¯t+ 360
+Figure 3: Left: a convex piecewise linear function where cost measures delay starting ta¯tand the cost coefficient
+of delay increases after 180 and 360 seconds. Right: a step function where the delay increases when the delay
+surpasses 0, 180, and 360 seconds.
+we can use three objective componentsc1, c2, c3, all applying to the same operation, but
+with different thresholds: ¯t1 = ¯t, ¯t2 = ¯t+ 180, ¯t2 = ¯t+ 360, and, e.g.,γ 1 =γ 2 =γ 3 = 1.
+Similarly, to implement the piecewise linear function on the right in Figure 3, we use the
+same ¯tvalues but let theγvalues be zero and set insteadζ1 =ζ 2 =ζ 3 = 1.
+•Trains may be longer than a block section. For example, if the train in Figure 2 is longer
+than the block sectionR 4, then the operation that represents traveling throughR 4 will
+also have a resource occupation forR3. Even worse, if the train is longer thanR8 andR 6
+combined, then traveling throughR8 will also need to occupy eitherR4 orR 5, depending on
+the path that the train has taken. Instead of creating one operation per block section, we can
+deal with this path dependency by creating one operation per possible subset of resources
+that could be occupied when a train’s head is located at the end of a block section. This
+transformation is described in more detail in [4], and may, in the worst case, cause the setOi
+to become exponentially larger. However, in practice, the relative lengths of block sections
+and trains seems to result in reasonably sized setsOi (empirically, it results in at most a
+doubling, according to [5]).
+•Rolling stock correspondence, i.e., the same wagons are used with a different train identity,
+can be implemented by joining two trainsi, jinto a common train withO=O i ∪O j and
+S=S i ∪S j ∪
+n
+(oi
+ni , oj
+1)
+o
+.
+•Train correspondence constraints, i.e., a pair of trains that are forced to be in a specific
+station at the same time, can be implemented by adding an additional resource that one of
+the trains requires in all operations preceding the arrival to the station, and that the other
+train requires for leaving the station.
+•Decisions regarding cancellations (and short-turnings) can be implemented by selecting a
+set of relevant operations after which the train could cancel. Then, we add additional
+operations that bring the train immediately from these operations to the exit operation, and
+we add objective components for these operations with a high cost incurred regardless of the
+scheduled time (the threshold is0).
+Although the last three items of the list above could be considered less desirable workarounds,
+it demonstrates the flexibility of the simple DISPLIB problem definition. Note that, for simplicity,
+the infrastructure is not explicitly modelled in the DISPLIB problem definition, except through
+the set of resources (for example, there is no graph structure describing the infrastructure).
+3. Problem instances
+For the DISPLIB 2025 benchmark set, we have gathered problem instances from four main
+sources. The instances are divided into 13 categories based on how the instances were produced
+from raw data. The categories are the following:
+6
+•smi: instancesreceivedfromSiemensMobilityItalydescribingtrainsfromafreight-dominated
+railwayextractedfromareal-timeinformationsystemfortraindispatching. Ineachinstance,
+a small set of trains were extracted from a larger set of trains because they represent particu-
+larly challenging interactions. Each train has a long sequence of operations and typically also
+a fairly wide range of routing alternatives (i.e., the graph for each train is quite complex).
+The number of trains per instances is between 5 and 13. Two subcategories contain different
+versions of these instance:
+–smi_headway: includes non-zero release times, representing headway times computed
+from the train length and average speed.
+–smi_close: no such headway requirement between trains.
+•nor: Instances received from SINTEF describing parts of the Norwegian national railway
+network. Instances were generated from a daily timetable extracted from a real-time infor-
+mation system for train dispatching. The timetable was modified by picking a random time
+during the day and adding delays to a random set of trains at the selected time. Instances
+were filtered so that only the more difficult instances are included. All the railway lines
+consists of a combination of double-track and single-track sections. Eight subcategories were
+made to distinguish between different lines and difficulty variations:
+–nor1_full: describes a railway line in Norway called Jærbanen. The line is 120 km
+long with 28 stations and contains all trains for a full day.
+–nor1_critical: instances generated in the same way as the previous subcategory, but
+where trains that are unlikely to be impacted by the delays are removed.
+–nor2: describes a railway line called Gjøvikbanen. The line is 123 km long with 35
+stations. The instances are limited to a 6 hour time window.
+–nor3: describes a railway line called Kongsvingerbanen. The line is 114 km long with
+26 stations. The instances are limited to a 6 hour time window.
+–nor4_small: describes a railway line called Dovrebanen. The line is 492 km long with
+55 stations, limited to a 6 hour time window.
+–nor4_large: same as the previous subcategory, but with the full day time window.
+–nor5_small: contains a combination of multiple lines in the Oslo region of Norway,
+connected in the Oslo Central Station, limited to a 6 hour time window.
+–nor5_large: same as the previous subcategory, but with the full day time window.
+•swi: instances based on openly available data from Swiss Federal Railways (SBB). These
+instances were prepared for a computational competition [12]. Instances are of increasing
+difficulty, ranging from a few trains to up to 467 trains per instance.
+•wab: instances received from Wabtec describing a set of trains in a dispatching region, ex-
+tracted from a real-time information system for train dispatching. Each of the 16 instances
+is made from consecutive snapshots of actual train positions during a period of a few hours.
+The routing graph for each train is fairly complex, describing station routing and also min-
+imum durations in consecutive stations being dependent on optional stops (i.e., a choice
+between stopping in one station or the next one). Two subcategories were made:
+–wab_large: all trains in the dispatching region in the next 24 hour period.
+–wab_small: same as the previous subcategory, but using a 16 hour period.
+A summary of instance characteristics is shown in Table 1.
+Together, these categories represent a wide range of situations and represent optimization
+problems that are difficult enough to test the limits of the state-of-the-art algorithm for train
+scheduling. An algorithm that would produce near-optimal solutions to all of these instances in
+less than 1 minute per instance would represent a significant milestone in this scientific field. We
+hope that making this collection available to the community will spur progress toward this goal.
+7
+Data Category Count Trains Operations Resources
+source (min.-max.) (min.-max.)
+smi smi_close 9 5 – 13 113 – 1975 787
+smi_headway 12 5 – 13 113 – 2245 790
+nor
+nor1_critical 10 4 – 16 148 – 796 95
+nor1_full 10 40 – 155 2194 – 8217 95
+nor2 5 23 – 23 1448 – 1750 137
+nor3 5 21 – 22 1237 – 1325 79
+nor4_large 5 171 – 365 17221 – 38125 408
+nor4_small 5 157 – 168 16034 – 17907 408
+nor5_large 5 346 – 505 34064 – 50934 512
+nor5_small 5 261 – 286 25594 – 28248 512
+swi swi 9 4 – 467 326 – 52741 1301
+wab wab_large 16 44 – 48 5588 – 6054 136
+wab_small 16 30 – 30 3285 – 3489 136
+Table 1: Problem characteristics of the instances in the DISPLIB 2025, grouped by category. The count column
+shows the number of problem instances in the category. The trains column shows the range of the number of trains
+in each instance (min.-max.). The operations column lists the number of operations, summed of the trains (also
+min.-max. over the category). The resources column shows the total number of resources used in the category.
+4. Computational competition
+A computational competition was held in connection with the development of the DISPLIB
+problem definition and file formats, and gathering of problem instances for DISPLIB 2025. The
+goal of the competition was to encourage development of new train dispatching algorithms, but
+also to (1) validate that the problem definition and file format were suitable for the purpose and
+easily understandable by the community, and (2) make sure that the problem instances were
+actually hard enough to pose a significant challenge to the research community.
+The competition was divided into two phases. Phase 1 was launched in October 2024, when
+the file format and competition rules were posted to the competition web page, together with a
+first set of problem instances and a solution verification program. Participants were encouraged to
+submit solutions to the phase 1 instances as early as possible, to allow the organizers to fix errors
+or clarify instructions. Then, in February 2025, phase 2 was initiated by publishing another set of
+harder problem instances on the web page.
+The use of existing general-purpose optimization software was allowed (including commercial
+solvers such as CPLEX, Gurobi, Xpress, etc.), but the use of multiple unrelated algorithms (such
+as portfolio solvers) was discouraged. Participants were required to submit a set of solutions to
+the problem instances that they computed using a maximum of 10 minutes of computation time
+per instance. This limit is somewhat higher than the typical real-time requirement, which is often
+in the range of 1-2 minutes, in order to encourage submission of algorithmic ideas that were not
+necessarily carefully implemented or fine-tuned for real-time usage. A rank-based scoring system
+was used to give points to the participants according to their solution quality and coverage, similar
+to the ITC2021 competition [24]). Points are awarded to each solution based on the position among
+its competitors, and phase 2 instances were given more points.
+In addition to the solutions to the problem instances, the participants were required to submit
+a short report describing their algorithm. An international panel of experts of railway optimization
+evaluated the submissions based on the scoring and the quality and novelty of the report. The
+panel selected a group of finalists who were invited to present their algorithms at the International
+Conference on Optimization and Decision Science (ODS) 2025. More details about the competition
+rules and detailed results are available from the web pagehttps://displib.github.io/.
+The competition and the gathering of problem instances validated that the problem definition
+was general enough to represent a wide range of data sources, and the file format was understand-
+able by the participants. Indeed, the top performing teams had very few clarification questions to
+8
+the competition organizers. Furthermore, none of the teams managed to solve all instances to op-
+timality, and no team outperformed all other teams on all instance categories, which confirms that
+the instances are challenging and suggests that the state of the art can be improved by developing
+better algorithms.
+5. Reference MILP model
+To provide a reference model for solving the DISPLIB problem instances, we present here
+a translation into mixed-integer linear programming (MILP). This model is presented only to
+provide a correct MILP formulation, which can be used for comparison, testing and inspiration.
+For modeling train scheduling problems using MILP, the literature is mostly divided between
+big-Mand time-indexed formulations [7]. Here we present a big-Mformulation, which is arguably
+the most direct way of modeling, and appears to be the most commonly used method in recent
+state-of-the-art implementations (see, for example, [13, 18, 21]).
+Reusing the notation of Section 2, we start by defining the continuous variablest i
+a ∈R,
+αi
+a ≤t i
+a ≤β i
+a, to represent the start time of operationoi
+a ∈O i for traini, whereα i
+a andβ i
+a are
+the lower bound and upper bound respectively.
+First, we will focus on modeling the routing and minimum running times of the trains. For
+each operationo i
+a ∈O i of each traini∈I, we introduce a variablex i
+a ∈ {0,1}that is equal to
+1 if and only if the operationoi
+a is part of the routeπ i. Similarly, for each pair of operations
+(oi
+a, oi
+b)∈S i, we introduce a variableyi
+a,b ∈ {0,1}that is equal to 1 if and only if we chooseoi
+a
+ando i
+b to be immediate successors in the routeπi. Then, we defineS i
+a as the set of successor
+operations ofo i
+a, i.e.,S i
+a ={o i
+b ∈O i : (oi
+a, oi
+b)∈S i}, and withPi
+a the set of predecessor operations
+ofo i
+a, i.e.,P i
+a ={o i
+b ∈O i : (oi
+b, oi
+a)∈S i}. We can now introduce the correspondingrunning times
+and routing constraints:
+P
+oi
+b∈Si
+1
+yi
+1,b = 1i∈I,
+P
+oia∈P ini
+yi
+a,ni = 1i∈I,
+P
+oia∈P ic
+yi
+a,c = P
+oi
+b∈Si
+c
+yi
+c,b oi
+c ∈O i \ {oi
+1, oi
+ni }, i∈I,
+yi
+a,b ≤x i
+a
+yi
+a,b ≤x i
+b
+xi
+a +x i
+b −1≤y i
+a,b
+ti
+b −t i
+a ≥δ i
+a ·y i
+a,b
+
+
+
+(oi
+a, oi
+b)∈S i, i∈I
+(1)
+The first three constraints are the classical flow conservation constraints that guarantee that we
+are choosing a path from entry to exit (i.e., a route), while the next three constraints make sure
+that the operations along this path are selected. The last constraint enforces the minimum running
+time constraints between two subsequent operations in the chosen path1.
+We can now focus on the exclusive access to resources. We first defineO=∪i∈I Oi as the set
+of all train operations and then we introduce the setAof all pairs of train operations (of different
+trains) that require the same resource, that is:
+A=
+n
+{oi
+a, oj
+b}:o i
+a, aj
+b ∈O, i̸=j,∃(r, λ)∈Ψ i
+a,∃(r ′, λ′)∈Ψ j
+b, r=r ′
+o
+.
+This is the set of all pairs of train operations that can potentially be in conflict. Next, for every
+pair{o i
+a, oj
+b} ∈ A, we introduce the binary variablezi,j
+a,b ∈ {0,1}that is equal to 1 if and only if
+1Without giving technical details which would go beyond the scope of the paper, we remark that we can avoid
+the use of a classical big-Mconstraint here thanks to the the fact that the graph of operations(Oi, Si)associated
+with any trainiis acyclic.
+9
+operationo i
+a precedes operationo j
+b. This means not only thatoi
+a starts beforeo j
+b, but also that
+oi
+a finishes beforeo j
+b starts. For example, ifzi,j
+a,b = 1, then all the successor operations ofoi
+a need
+to start (if selected) beforeoj
+b (plus the relevant release times). Then, we can write the following
+pairwise resource constraints:
+ti
+¯a−t j
+b ≤ −λ+M(1−z i,j
+a,b)o i
+¯a∈S i
+a,(r, λ)∈Ψ i
+a,∃(r,·)∈Ψ i
+b
+tj
+¯b −t i
+a ≤ −λ ′ +M(1−z i,j
+b,a)o j
+¯b ∈S i
+b,(r ′, λ′)∈Ψ i
+b,∃(r ′,·)∈Ψ i
+a
+xi
+a ≥z i,j
+a,b +z i,j
+b,a
+xi
+b ≥z i,j
+a,b +z i,j
+b,a
+xi
+a +x i
+b −1≤z i,j
+a,b +z i,j
+b,a
+
+
+
+{oi
+a, oj
+b} ∈ A.(2)
+The first constraint says that if operationxi
+a precedes operationx j
+b and the release time of the
+common resource for operationoi
+a isλ, then we havet i
+c +λ≤t j
+b for all successor operationsoi
+c
+ofo i
+a. Similarly the second. The third enforces the precedence decision when both operations are
+selected, whereas the last two ensure that no precedence is impose when at least one of the two
+operations is not selected.
+Note that while the previous constraints guarantee exclusive use of common resource for each
+pair of corresponding train operations, this is in general not enough to guarantee the feasibility
+of a solution. The typical example involves two trains traveling in opposite directions and two
+resources, where trainAtraverses first resourcer 1 (in 10 units of time) and thenr2 while train
+Btraverses firstr 2 (in 10 units of time) and thenr1. Assuming that the release times are equal
+to 0, a schedule witht A
+r1 = 0, t A
+r2 = 10andt B
+r2 = 0, t B
+r1 = 10would be feasible according the
+constraints we defined so far (here we omitted the concept of train operations for simplicity of
+presentation). Sometimes, this is calledswapping, as the trains are instantaneously swapping the
+usage of resources at time 10.
+The swapping behavior is prevented by imposing a global ordering of operations. For each
+operationo i
+a ∈O, we introduce a non-negative integer variableu i
+a. Then, we simply order all
+operations based on all their precedence relationships by introducing the followingordering con-
+straints:
+ui
+a −u i
+b ≤ −1 +M(1−y i
+a,b) (o i
+a, oi
+b)∈S i, i∈I,
+ui
+¯a−u j
+b ≤ −1 +M(1−z i,j
+a,b)o i
+¯a∈S i
+a
+uj
+¯b −u i
+a ≤ −1 +M(1−z i,j
+b,a)o j
+¯b ∈S j
+b
+)
+{oi
+a, oj
+b} ∈ A.
+(3)
+Lastly, weneedtomodeltheobjectivefunction. Foreachobjectivecomponentc= (o i
+a, t, γ, ζ)∈
+C, we define a binary variablevc that is equal to 1 ifti
+a − t≥0. We also define a nonnegative
+continuous variablewc ∈R + to model the cost of each componentc. Then, we model the objective
+components with the followingobjective constraints:
+ti
+a − t≤M v c c= (o i
+a, t, γ, ζ)∈ C,
+wc ≥γ(t i
+a − t) +ζv c c= (o i
+a, t, γ, ζ)∈ C. (4)
+The first constraint makes sure thatvc = 1whent i
+a ≥ t, while the second constraint models the
+sum of the linear component with the step component.
+The full MILP formulation then consists of minimizingP
+c∈C wc subject to constraints (1) to
+(4). A DISPLIB solution can then be retrieved from the solution of the MILP model by taking
+all operationso i
+a ∈Owithx i
+a = 1and sorting them by(t i
+a, ui
+a), lexicographically.
+6. Conclusions and future work
+This paper presents the DISPLIB train dispatching problem, and a set of challenging bench-
+mark problem instances derived from real-world train dispatching applications. The problem
+10
+instances are freely available online, and are accompanied by a verification program and a refer-
+ence MILP solver implementation. The problem statement and the hardness of the instances has
+been validated through a computational competition held in 2024-2025. We hope that this bench-
+marking framework will spur innovation and interest in the field of train dispatching algorithms,
+and provide an infrastructure for fruitful research advancing the state of the art.
+We intend the DISPLIB benchmark set to be an ongoing effort, and we are currently gath-
+ering additional problem instances from dispatching applications from multiple countries. Any
+researchers or developers of train dispatching optimization applications who have data describing
+relevant problem instances are welcome to contribute them to the authors for inclusion into a
+future version of the DISPLIB benchmark set.
+Acknowledgements
+Thanks to SINTEF Digital, Siemens Mobility Italy, Wabtec Corporation, and Swiss Federal Rail-
+ways (SBB) for providing/publishing raw data for the problem instances. Thanks to the organiz-
+ers of the International Conference on Optimization and Decision Science (ODS) for supporting
+and publicizing the competition. Thanks also to the members of the scientific committee of the
+computational competition, Giorgio Sartor, Marcella Samà, Paolo Ventura, Steven Harrod, and
+Dennis Huisman. This work was partially funded by the European Union through the project
+MOTIONAL, Grant Agreement 101101973. Views and opinions expressed are however those of
+the author(s) only and do not necessarily reflect those of the European Union or the Europe’s Rail
+Joint Undertaking. Neither the European Union nor the Europe’s Rail Joint Undertaking can be
+held responsible for them.
+References
+[1] Maurizio Boccia, Veronica Dal Sasso, Leonardo Lamorgese, Carlo Mannino, and Paolo Ven-
+tura. Optimizing train dispatching for the Union Pacific Railroad. arXiv:2503.19535, 2025.
+[2] Francesco Corman and Lingyun Meng. A review of online dynamic models and algorithms
+for railway traffic management.IEEE Transactions on Intelligent Transportation Systems,
+16(3):1274–1284, 2014.
+[3] Anna Livia Croella, Bjørnar Luteberget, Carlo Mannino, and Paolo Ventura. A MaxSAT
+approach for solving a new dynamic discretization discovery model for train rescheduling
+problems.Computers & Operations Research, 167:106679, 2024.
+[4] Veronica Dal Sasso, Leonardo Lamorgese, Carlo Mannino, Andrea Onofri, and Paolo Ventura.
+A 0, 1 linear programming approach to deadlock detection and management in railways.
+Transportation Science, 59(1):187–205, 2025.
+[5] Veronica Dal Sasso, Leonardo Lamorgese, Carlo Mannino, Antonio Tancredi, and Paolo Ven-
+tura. Easy cases of deadlock detection in train scheduling.Operations Research, 70(4):2101–
+2118, 2022.
+[6] George B Dantzig and John H Ramser. The truck dispatching problem.Management science,
+6(1):80–91, 1959.
+[7] Pedro José Correia Duarte, Stéphane Dauzère-Pérès, Dennis Huisman, Carlo Mannino, Gior-
+gio Sartor, Norman Weik, and Philipp Widmann. 50 years of or in railway timetabling and
+rolling stock planning.EURO Journal on Transportation and Logistics, page 100155, 2025.
+[8] Wei Fang, Shengxiang Yang, and Xin Yao. A survey on problem models and solution ap-
+proaches to rescheduling in railway networks.IEEE Transactions on Intelligent Transporta-
+tion Systems, 16(6):2997–3016, 2015.
+11
+[9] Ambros Gleixner, Gregor Hendel, Gerald Gamrath, Tobias Achterberg, Michael Bastubbe,
+Timo Berthold, Philipp Christophel, Kati Jarck, Thorsten Koch, Jeff Linderoth, et al. MI-
+PLIB 2017: data-driven compilation of the 6th mixed-integer programming library.Mathe-
+matical Programming Computation, 13(3):443–490, 2021.
+[10] Marijn JH Heule, Markus Iser, Matti Järvisalo, and Martin Suda. Proceedings of sat compe-
+tition 2024: Solver, benchmark and proof checker descriptions. 2024.
+[11] INFORMSRailwayApplicationsSection(RAS). Dataandarchiveofpreviousproblemsolving
+competition (web page).https://connect.informs.org/railway-applications/new-i
+tem3/problem-repository16[accessed 2025-08-19].
+[12] Julian Jordi. SBB Train Schedule Optimisation Challenge (web page).https://www.aicr
+owd.com/challenges/train-schedule-optimisation-challenge[accessed 2025-08-19].
+[13] Oddvar Kloster, Bjørnar Luteberget, Carlo Mannino, and Giorgio Sartor. An optimization-
+based decision support tool for incremental train timetabling. InOperations Research Forum,
+volume 4, page 65. Springer, 2023.
+[14] Leonardo Lamorgese and Carlo Mannino. An exact decomposition approach for the real-time
+train dispatching problem.Operations Research, 63(1):48–64, 2015.
+[15] Leonardo Lamorgese, Carlo Mannino, and Erik Natvig. An exact micro–macro approach to
+cyclic and non-cyclic train timetabling.Omega, 72:59–70, 2017.
+[16] Leonardo Lamorgese, Carlo Mannino, Dario Pacciarelli, and Johanna Törnquist Krasemann.
+Handbook of optimization in the railway industry, chapter Train dispatching, pages 265–283.
+Springer, 2018.
+[17] Nuannuan Leng, Zhengwen Liao, and Francesco Corman. Role of timetable, rolling stock
+rescheduling, and information strategies to passengers in public transport disruptions.Trans-
+portation Research Record, 2674(9):135–147, 2020.
+[18] Florin Leutwiler and Francesco Corman. A logic-based benders decomposition for microscopic
+railway timetable planning.European Journal of Operational Research, 303(2):525–540, 2022.
+[19] Quan Lu, Maged Dessouky, and Robert C Leachman. Modeling train movements
+through complex rail networks.ACM Transactions on Modeling and Computer Simulation
+(TOMACS), 14(1):48–75, 2004.
+[20] Sharada Mohanty, Erik Nygren, Florian Laurent, Manuel Schneider, Christian Scheller, Nil-
+abha Bhattacharya, Jeremy Watson, Adrian Egli, Christian Eichenberger, Christian Baum-
+berger, et al. Flatland-rl: Multi-agent reinforcement learning on trains.arXiv preprint
+arXiv:2012.05893, 2020.
+[21] Paola Pellegrini, Raffaele Pesenti, and Joaquin Rodriguez. Efficient train re-routing and
+rescheduling: Valid inequalities and reformulation of recife-milp.Transportation Research
+Part B: Methodological, 120:33–48, 2019.
+[22] Gerhard Reinelt. TSPLIB—a traveling salesman problem library.ORSA journal on comput-
+ing, 3(4):376–384, 1991.
+[23] Giorgio Sartor, Carlo Mannino, Thomas Nygreen, and Lukas Bach. A milp model for quasi-
+periodic strategic train timetabling.Omega, 116:102798, 2023.
+[24] David Van Bulck and Dries Goossens. The international timetabling competition on sports
+timetabling (itc2021).European Journal of Operational Research, 308(3):1249–1267, 2023.
+[25] Chuntian Zhang, Jianguo Qi, Yuan Gao, Lixing Yang, Ziyou Gao, and Fanting Meng. In-
+tegrated optimization of line planning and train timetabling in railway corridors with pas-
+sengers’ expected departure time interval.Computers & Industrial Engineering, 162:107680,
+2021.
+12
+Appendix A. The DISPLIB file format
+The DISPLIB problem instances are stored as standard JSON files. The JSON object for a
+DISPLIB problem instance contains two keys:trainsandobjective, giving the following overall
+structure of the JSON file, where...is a placeholder:
+{ "trains": [[{ ... operation ... }, ... ], ... ],
+"objective": [{ ... component ... }, ... ] }
+Appendix A.1. Trains
+The top-leveltrainskey contains a list of trains, where each train is a list of operations.
+References to specific trains are given as a zero-based index into thetrainslist, and references to
+operations are given as a zero-based index into a specific train’s list of operations. Each operation
+is a JSON object with the following keys:
+•start_lb(optional, number): the earliest start time of the operation. Must be a non-
+negative integer. If the key is not present, defaults to 0.
+•start_ub(optional, number): the latest start time of the operation. Must be a non-negative
+integer. If the key is not present, defaults to infinity (i.e., no upper bound).
+•min_duration(number): the minimum duration, i.e., the minimum time between the start
+time and the end time of the operation. Must be a non-negative integer.
+•resources(optional, list): a list of resources used by the train while performing the opera-
+tion. If the key is not present, defaults to the empty list. Each resource usage is given as a
+JSON object with the following keys:
+–resource(string): the name of a resource.
+–release_time(optional, number): the release time for the resource, i.e., the minimum
+duration between the end time of this operation and the start time of any subsequent
+operation (of a different train) using the same resource. If the key is not present,
+defaults to 0.
+•successors(list): a list of alternative successor operations, given as zero-based indices into
+the list of this train’s operation. The list must be non-empty unless this operation is the
+exit operation.
+For example, an operation that starts between time 7 and 8 and has a duration of 5 time units,
+uses the resourceR1, and releases it immediately after the end event, and must be succeeded by
+the operation with index 2, would be formatted as follows:
+{ "start_lb": 7, "start_ub": 8, "min_duration": 5,
+"resources": [{ "resource": "R1" }], "successors": [2] }
+For each train, the list of operations is ordered topologically, i.e., all successors for an operation
+appear after it in the list. Note that this also means that the entry operation will always be at
+index 0, and the exit operation will always be the last operation in the list.
+Appendix A.2. Objective
+Thetop-levelobjectivekeycontainsalistofobjectivecomponents. Eachobjectivecomponent
+is a JSON object containing the keytypefor determining an objective component type, and other
+keys depending on the type. Only one type, calledoperation delay(see Sec. 2.1), is defined in
+DISPLIB 2025 (thetypekey is included for forward compatibility).
+The operation delay objective component is decribed as a JSON object with the following keys:
+•type(string): must contain the string"op_delay".
+•train(number): reference to a train as an index into the top-leveltrainslist.
+13
+•operation(number): reference to an operation as an index into the list defining the train’s
+operation graph.
+•threshold(number): a time after which this delay component is activated, as defined in
+the formula above. If the key is not present, defaults to 0.
+•increment(number): the constantdin the formula above. Must be a non-negative integer.
+If the key is not present, defaults to 0.
+•coeff(number): the constantcin the formula above. Must be a non-negative integer. If
+the key is not present, defaults to 0.
+For example, an objective component that measures the time that train 0’s operation 5 is
+delayed beyond time 10, would be formatted as follows:
+{ "type": "op_delay", "train": 0, "operation": 5,
+"threshold": 10, "coeff": 1 }
+Appendix A.3. Solution format
+Solutions to a DISPLIB problem are given as a JSON object (typically in a separate file from
+the problem instance), containing the following keys:
+•objective_value(number): istheobjectivevalueofthesolution(accordingtotheobjective
+from the problem instance).
+•events(list): is an ordered list of start events, i.e. a list of references to operations to be
+started in the given order. Each start event is described by a JSON object with the following
+keys:
+–time(number): the time at which to start the operation. Must be a non-negative
+integer.
+–train(number): reference to a train as an index into the top-leveltrainslist.
+–operation(number): reference to an operation as an index into the list defining the
+train’s operation graph.
+Appendix A.4. An example problem
+Let’s consider two trains meeting at a junction, coming from opposite directions. Train A is
+currently occupying the left part of the track (resourceL), and may proceed either to the upper
+right track (resourceR1), which train B is currently occupying, or to the lower right track (resource
+R2), which is currently free.
+ϕ0
+A B
+L R1
+R2
+The operation graphs for the two trains would look as follows:
+The objective is to minimize the time when train B finishes traveling throughL. The JSON
+problem instance for this problem is:
+{
+"trains": [
+[{ "start_ub": 0,
+"min_duration": 5,
+"resources": [{ "resource": "L" }],
+14
+op 0,δ= 5
+t= 0
+res.:[L]
+op 1,δ= 5
+res.:[R1]
+op 2,δ= 5
+res.:[R2]
+op 3,δ= 0
+res.:[]
+Train A
+op 0,δ= 5
+t= 0
+res.:[R1]
+op 1,δ= 5
+res.:[L]
+op 2,δ= 0
+res.:[]
+Train B
+"successors": [1, 2] },
+{ "min_duration": 5,
+"successors": [3],
+"resources": [{ "resource": "R1" }]},
+{ "min_duration": 5,
+"successors": [3],
+"resources": [{ "resource": "R2" }]},
+{ "min_duration": 0,
+"successors": []}],
+[{ "start_ub": 0,
+"min_duration": 5,
+"resources": [{ "resource": "R1" }],
+"successors": [1]},
+{ "min_duration": 5,
+"resources": [{ "resource": "L" }],
+"successors": [2]},
+{ "min_duration": 0,
+"successors": []}]],
+"objective": [{ "type": "op_delay",
+"train": 1,
+"operation": 2,
+"coeff": 1}]
+}
+The following JSON object is a feasible (and optimal) solution to the problem instance:
+{ "objective_value": 10, "events": [
+{"time": 0, "train": 0, "operation": 0},
+{"time": 0, "train": 1, "operation": 0},
+{"time": 5, "train": 0, "operation": 2},
+{"time": 5, "train": 1, "operation": 1},
+{"time": 10, "train": 1, "operation": 2},
+{"time": 10, "train": 0, "operation": 3}] }
+Note that this is an example where the global ordering of events is important beyond the
+ordering implied by the time values: if we switch the ordering of the two events at time 5, the
+result is not a feasible solution since operation 1 of train B allocatesLwhile it is still in use by
+train A.
+15

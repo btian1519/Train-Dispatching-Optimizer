@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.env
+
+# Solver outputs (ignore JSON and CSV files in output directories)
+phase1_baseline/output/*
+!phase1_baseline/output/.gitkeep
+phase2_extend/output/*
+!phase2_extend/output/.gitkeep
+
+# Ignore scratch scripts or log files
+run_single.py
+*.log

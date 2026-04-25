@@ -1,0 +1,114 @@
+{
+    // "trains" 列表存放了所有列车的行程安排。它是一个二维数组（列表套列表）。
+    // 最外层的每一个列表代表一辆单独的列车。
+    "trains": [
+        
+        // ================= 车次索引： Train 0 的所有动作安排 =================
+        [
+            // Train 0 的 第 0 步 (Operation 0): 虚拟起点站/发车点
+            {
+                // start_ub (Start Upper Bound): 发车的绝对最晚容忍时间。
+                // 这里是 0，说明这辆车必须在时间 0 准时启动。
+                "start_ub": 0, 
+                // min_duration: 从起点发车不需要额外耗时，所以是 0 
+                "min_duration": 0,
+                // successors (后继节点): 干完这一步后，下一步应该去执行哪一步？
+                // 这里写了 [1]，意思是跑完第 0 步，下一步去执行数组里的第 1 步。
+                "successors": [1]
+            },
+            
+            // Train 0 的 第 1 步 (Operation 1): 开始进入有冲突的单行道
+            {
+                // min_duration: 跑完这段路最低需要花费的时间，这里是 5 (分钟/秒, 假设是秒)
+                "min_duration": 5,
+                // resources: 这辆车在跑这一步时，向调度中心申请了哪些独占资源？
+                "resources": [
+                    {
+                        "resource": "r0" // 宣布占领名字叫 "r0" 的轨道段，别的车这时候不能进来
+                    }
+                ],
+                // 下一步是去执行第 2 步
+                "successors": [2]
+            },
+            
+            // Train 0 的 第 2 步 (Operation 2): 驶入下半段轨道
+            {
+                // min_duration: 这段路也需要开 5 
+                "min_duration": 5,
+                // 驶出 r0 后，紧接着开始占领 "r1" 这个轨道段
+                "resources": [
+                    {
+                        "resource": "r1"
+                    }
+                ],
+                // 下一步去执行第 3 步（通常是出站或者彻底离开监控区）
+                "successors": [3]
+            },
+            
+            // Train 0 的 第 3 步 (Operation 3): 虚拟终点站/驶出监控区
+            {
+                // 离开的动作需要花费 5 
+                "min_duration": 5,
+                // successors 是空的 []，意味着这是该列车的终点，这辆车的调度之旅结束了！
+                "successors": []
+            }
+        ],
+
+        // ================= 车次索引： Train 1 的所有动作安排 =================
+        // 这个火车的设定和上面几乎一样，但是它经过轨道的顺序变了！它是个逆行车！
+        [
+            // Train 1 的第 0 步 (起点)
+            {
+                "start_ub": 0,
+                "min_duration": 0,
+                "successors": [1]
+            },
+            // Train 1 的第 1 步 (先开进 r1 轨道！与 Train 0 的移动方向刚好相撞)
+            {
+                "min_duration": 5,
+                "resources": [
+                    {
+                        "resource": "r1"
+                    }
+                ],
+                "successors": [2]
+            },
+            // Train 1 的第 2 步 (再开进 r0 轨道！)
+            {
+                "min_duration": 5,
+                "resources": [
+                    {
+                        "resource": "r0"
+                    }
+                ],
+                "successors": [3]
+            },
+            // Train 1 的第 3 步 (终点)
+            {
+                "min_duration": 5,
+                "successors": []
+            }
+        ]
+    ],
+
+    // ================= 系统评判的扣分目标项 (Objective Components) =================
+    // Gurobi 将努力让下面这些项算出来的惩罚分数之和 越小越好 (MINIMIZE)。
+    "objective": [
+        {
+            // 这是第一张“罚单”：
+            "type": "op_delay", // 罚单类型：操作延迟扣分 (Operation Delay)
+            "train": 0,         // 被扣分的对象是哪辆车：Train 0
+            "operation": 3,     // 这个罚单监督的是哪个步骤？这里是它的第 3 步（也就是它的终点进站）
+            "threshold": 0,     // 及格线 (Threshold)。即要求这列车在时间 0 之前就到达终点。迟到的话，超过的部分开始计分。
+            "coeff": 1          // 每迟到 1 秒，扣系数(coeff)里的这么多分：也就是 1 迟到秒数 = 1 分。
+        },
+        {
+            // 第二张“罚单”：
+            "type": "op_delay", 
+            "train": 1,         // 给 Train 1 算分
+            "operation": 3,     // 同样是盯着它的终点到达时间
+            "threshold": 0,     
+            "coeff": 1          // 同样的，迟到1秒罚1分
+        }
+    ]
+}

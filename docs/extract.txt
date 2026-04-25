@@ -1,0 +1,137 @@
+SS26 | Operations Management | Advanced Planning in Production and Logistics - Optimization Lab  | Kick-Off Seite 1
+Lehrstuhl für Operations Management
+RWTH Aachen
+Kackertstraße 7
+52072 Aachen 
+Advanced Planning in Production and Logistics -
+Optimization Lab
+Kick-Off
+SS26 | Operations Management | Advanced Planning in Production and Logistics - Optimization Lab  | Kick-Off Seite 2
+Organisatorisches
+Lehrstuhl für Operations Management
+• Dozentin: Dr. Christina Liepold-Viehweger
+Sprechstunde: nach Vereinbarung, per E-Mail anmelden
+christina.liepold@om.rwth-aachen.de
+• Betreuende Mitarbeiter: Simon Thomä & Yu Li
+Sprechstunde: nach Vereinbarung, per E-Mail anmelden 
+simon.thomae@om.rwth-aachen.de
+yu.li@om.rwth-aachen.de
+• Sekretariat: Heika Straeten
+sekretariat@om.rwth-aachen.de
+• Lehrstuhl: http://om.rwth-aachen.de/
+
+SS26 | Operations Management | Advanced Planning in Production and Logistics - Optimization Lab  | Kick-Off Seite 3
+Organisatorisches
+AT APPL – Optimization Lab: Zeitplan
+15.04.
+Kick-Off
+▪ Organisatorisches
+▪ Gruppeneinteilung
+(ca. 3 Personen)
+▪ Aufgabenstellung
+▪ Gruppenarbeit
+20.05. 08.07.
+Teilnahme an Gruppenterminen und Kolloquien ist erforderlich
+➢ Prüfen Sie bitte, ob Sie an den oben angegebenen Terminen teilnehmen können
+➢ Individuell vereinbarte Gruppentermine finden als Präsenztermine statt
+Abschlusskolloquium
+▪ 20+10 min
+▪ Ergebnisse
+▪ Reporting
+17.07.
+Abgabe Hausarbeit
+▪ 15-20 Seiten
+▪ Dokumentation der 
+Ergebnisse
+Zwischenpräsentation
+▪ 20+10 min
+▪ Planungsproblem
+▪ Lösungsansatz
+▪ Vorstellung der 
+Zwischenergebnisse
+▪ Feedback
+30.04.
+Scientific Writing 
+Workshop
+▪ Vorbereitung auf 
+Abschlussreport
+SS26 | Operations Management | Advanced Planning in Production and Logistics - Optimization Lab  | Kick-Off Seite 4
+Organisatorisches
+AT APPL – Optimization Lab: Gruppeneinteilung / Aufgabe
+▪ Wissenschaftliches Problemlösen
+▪ Selbstorganisation
+▪ Projektmanagement
+▪ Softwareskills zur 
+problemadäquaten Umsetzung
+Was ist das Ziel?
+▪ Jede Gruppe bearbeitet das in der DISPLIB 2025 
+Competition vorgestellte Train Dispatching 
+Problem 
+▪ Jede Gruppe muss zuerst ein MIP Model für das 
+Problem aufstellen
+▪ Anschließend muss ein weiterführender Ansatz (z.B. 
+Erweiterung des MIPs, heuristischer Ansatz, Hexaly, 
+etc.) implementiert werden
+▪ Der Lösungsansatz soll aufgearbeitet, 
+implementiert, gelöst und kritisch diskutiert 
+werden.
+
+SS26 | Operations Management | Advanced Planning in Production and Logistics - Optimization Lab  | Kick-Off Seite 5
+Organisatorisches
+AT APPL – Optimization Lab: Train Dispatching Problem
+Input: 
+• Liste an Zügen
+• Liste an Ressourcen (z.B. Streckenabschnitte)
+• Jeder Zug muss eine Liste an „Operationen“ ausführen 
+(gegeben als train operation graph)
+• Teilweise benötigen verschiedene Züge die selben 
+Ressourcen (z.B. selben Streckenabschnitt) 
+Kurze Einführung: Train Dispatching Problem 
+Ziel: 
+• Schedule wann welche 
+Ressource welchem Zug zur 
+Verfügung gestellt wird
+• Für jeden Zug ein Zeitplan 
+wann welche Operation 
+ausgeführt werden soll
+Quelle: https://displib.github.io/
+𝛿: Dauer der Operation; 
+𝑡: Zeitpunkt wann mit Operation begonnen wird
+Detaillierte Informationen finden Sie unter: https://displib.github.io/ und DISPLIB Paper in Moodle 
+
+SS26 | Operations Management | Advanced Planning in Production and Logistics - Optimization Lab  | Kick-Off Seite 6
+Organisatorisches
+AT APPL – Optimization Lab: Aufgabe und Bewertung
+Aufgabe
+▪ Implementierung eines MIP-Modells für das Train Dispatching Problem 
+▪ Tests und Auswertungen auf (einem Teil der) Testinstanzen auf https://displib.github.io/ Anschließend muss 
+der MIP erweitert werden, z.B. durch:
+▪ Entwicklung einer Heuristik und Vergleich beider Lösungsansätze
+▪ Deutliche Erweiterung des Basis-MIP-Modells durch verstärkende Ungleichungen, Branching-Regeln etc.
+▪ Verwenden anderen Optimierungstool wie Hexaly, oder Constraint Programming
+▪ Ergebnisse müssen in Form einer Hausarbeit (15-20 Seiten) und einer Präsentation (20 min) vorgestellt 
+werden
+65% Hausarbeit
+35% Präsentationen
+Bewertung
+SS26 | Operations Management | Advanced Planning in Production and Logistics - Optimization Lab  | Kick-Off Seite 7
+Inventory Routing Problem
+AT APPL – Optimization Lab: Einführungsaufgabe
+Nächste Schritte
+▪ Finden Sie sich in 3er Gruppen zusammen (2er oder 4er Gruppen erlaubt wenn es nicht aufgeht) 
+▪ Erstes Meeting mit ihrem Betreuer in der Woche vom 27.4. (besser diese Woche):
+▪ Letzte Unklarheiten zum Problem klären – Paper muss im Detail verstanden sein
+▪ Erste Versuche zur Implementierung (wenn in 2 Wochen)
+▪ Bis zur Zwischenpräsentation: 
+▪ Implementierung eines ersten MIP-Modells
+▪ Validierung des Models auf (einem Teil der) Testinstanzen auf https://displib.github.io/ oder selbst 
+ausgewählten Daten
+▪ Erste Ansätze für Erweiterung sollten bis zur Zwischenpräsentation erarbeitet sein
+▪ Anschließend Implementierung der Modelerweiterung und Validierung auf Testinstanzen
+▪ Präsentation der Ergebnisse im Abschlusskolloquium
+▪ Fristgerechte Abgabe der Hausarbeit
+Weitere Hinweise:
+• Wenn Sie eine individuelle Bewertung wünschen, geben Sie bitte in der Ausarbeitung an, wer an 
+welchem Abschnitt gearbeitet hat
+• In Moodle finden Sie ein kurzes Python-Gurobi Tutorial und eine Liste von Literatur zum Einstieg 
+• Sollte es Probleme während der Gruppenarbeit geben, kommen Sie bitte direkt auf uns zu!
