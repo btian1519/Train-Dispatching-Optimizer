@@ -194,7 +194,7 @@ class DisplibCPModel:
                 continue
             
             over_time = self.model.NewIntVar(0, self.horizon * 2, f"ov_{c_idx}")
-            self.model.Add(over_time >= self.ends[t_id, o_id] - th).OnlyEnforceIf(x_a)
+            self.model.Add(over_time >= self.starts[t_id, o_id] - th).OnlyEnforceIf(x_a)
             
             cost_var = self.model.NewIntVar(0, int(self.horizon * 2 * max(1, scaled_cf)), f"cost_{c_idx}")
             self.model.Add(cost_var == over_time * scaled_cf).OnlyEnforceIf(x_a)
