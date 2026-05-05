@@ -202,15 +202,128 @@ class DisplibMipModel:
                         "time": int(round(val_t)),
                         "train": train.id
                     })
-                    
-        # ---------------------------------------------------------
-        # ROBUST TOPOLOGICAL SORT FOR VERIFIER
-        # ---------------------------------------------------------
-        # We can directly use the topological rank `u` calculated by the Gurobi solver!
-        # This completely guarantees no cyclic dependencies and matches the physical causality.
-        events.sort(key=lambda x: (x["time"], self.u[x["train"], x["operation"]].X))
         
-        final_events = events
+        # ---------------------------------------------------------
+# ROBUST EVENT EXPORT FOR VERIFIER
+# ---------------------------------------------------------
+        from collections import defaultdict
+
+        def get_res(tr, op_id):
+            op = self.instance.trains[tr].get_operation(op_id)
+            return [r.resource for r in getattr(op, "resources", [])]
+
+        # 1. Events aus tatsächlich gewähltem y-Pfad bauen
+        events = []
+
+        for train in self.instance.trains:
+            selected_edges = {}
+
+            for (tr, a, b), var in self.y.items():
+                if tr == train.id and var.X > 0.5:
+                    selected_edges[a] = b
+
+            predecessors = {op.id: [] for op in train.operations}
+            for op in train.operations:
+                for succ in op.successors:
+                    predecessors[succ].append(op.id)
+
+            entries = [
+                op.id for op in train.operations
+                if len(predecessors[op.id]) == 0
+            ]
+
+            cur = entries[0]
+            visited = set()
+            pos = 0
+
+            while cur not in visited:
+                visited.add(cur)
+
+                events.append({
+                    "operation": cur,
+                    "time": int(round(self.t[train.id, cur].X)),
+                    "train": train.id,
+                    "pos": pos
+                })
+
+                pos += 1
+
+                if cur not in selected_edges:
+                    break
+
+                cur = selected_edges[cur]
+
+        # 2. Grundsortierung: Zeit global, aber Zugpfadposition intern stabil
+        events.sort(key=lambda e: (e["time"], e["train"], e["pos"]))
+
+        # 3. frees/allocates bestimmen
+        prev_op = {}
+
+        for e in events:
+            tr = e["train"]
+            op = e["operation"]
+
+            e["allocates"] = get_res(tr, op)
+
+            if tr in prev_op:
+                e["frees"] = get_res(tr, prev_op[tr])
+            else:
+                e["frees"] = []
+
+            prev_op[tr] = op
+
+        # 4. Nur innerhalb gleicher Zeit umsortieren:
+        #    - gleicher Zug bleibt immer in Pfad-Reihenfolge
+        #    - Resource-Freigabe vor Resource-Allokation
+        groups = defaultdict(list)
+
+        for e in events:
+            groups[e["time"]].append(e)
+
+        final_events = []
+
+        for t in sorted(groups.keys()):
+            group = groups[t]
+
+            for _ in range(len(group)):
+                changed = False
+
+                for i in range(len(group)):
+                    for j in range(i + 1, len(group)):
+                        e1 = group[i]
+                        e2 = group[j]
+
+                        # Gleicher Zug: Pfad-Reihenfolge darf nie verletzt werden
+                        if e1["train"] == e2["train"]:
+                            if e1["pos"] > e2["pos"]:
+                                group[i], group[j] = group[j], group[i]
+                                changed = True
+                            continue
+
+                        # Falls e2 eine Ressource freigibt, die e1 braucht:
+                        # e2 muss vor e1 stehen
+                        e2_frees_for_e1 = any(
+                            r in e1["allocates"] for r in e2["frees"]
+                        )
+
+                        if e2_frees_for_e1:
+                            group[i], group[j] = group[j], group[i]
+                            changed = True
+                            continue
+
+                if not changed:
+                    break
+
+            for e in group:
+                final_events.append({
+                    "operation": e["operation"],
+                    "time": e["time"],
+                    "train": e["train"]
+                })
+
+        events = final_events
+
+        
         # ---------------------------------------------------------
         
         output = {

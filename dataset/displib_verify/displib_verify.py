@@ -424,7 +424,7 @@ def main(problemfilename, solutionfilename):
         with open(problemfilename) as f:
             raw_problem = json.load(f)
         problem = parse_problem(raw_problem)
-        print(f"{bcolors.OKGREEN}✓{bcolors.ENDC} - problem parsed successfully ({len(problem.trains)} trains and {len(problem.objective)} objective components).")
+        print(f"{bcolors.OKGREEN}[VERIFIED]{bcolors.ENDC} - problem parsed successfully ({len(problem.trains)} trains and {len(problem.objective)} objective components).")
 
         if solutionfilename is None:
             return
@@ -434,7 +434,7 @@ def main(problemfilename, solutionfilename):
         solution = parse_solution(raw_solution)
 
         value = verify_solution(problem, solution)
-        print(f"{bcolors.OKGREEN}✓{bcolors.ENDC} - solution is feasible with objective value {value}.")
+        print(f"{bcolors.OKGREEN}[VERIFIED]{bcolors.ENDC} - solution is feasible with objective value {value}.")
         if solution.objective_value < INFINITY and value != solution.objective_value:
             warn(
                 f"the solution's objective value {solution.objective_value} does not match the computed objective value"

@@ -1,10 +1,13 @@
 import os
+import sys
 import time
 import glob
 import tkinter as tk
 from tkinter import filedialog
 from src.data_parser import DisplibInstance
 from src.cp_model import DisplibCPModel
+
+sys.stdout.reconfigure(encoding='utf-8')
 
 def run_single_test(test_file, script_dir, is_batch=False):
     filename = os.path.basename(test_file)
@@ -28,7 +31,7 @@ def run_single_test(test_file, script_dir, is_batch=False):
             time_limit = 60
         else:
             cp_model.solver.parameters.log_search_progress = True
-            time_limit = 300
+            time_limit = 10
             
         print(f"-> CP Model constructed in {time.time() - start_time:.2f} s. Optimizing (Max {time_limit}s)...")
         

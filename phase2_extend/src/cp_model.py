@@ -170,8 +170,9 @@ class DisplibCPModel:
                 
                 # Precedences Time Logic
                 for succ in op.successors:
-                    # IF y[op->succ] is true => start(succ) >= end(op)
-                    self.model.Add(self.starts[t_id, succ] >= self.ends[t_id, o_id]).OnlyEnforceIf(self.y[t_id, o_id, succ])
+                    # IF y[op->succ] is true => start(succ) == end(op)
+                    # This is critical: the train occupies the resource until it physically starts the next operation!
+                    self.model.Add(self.starts[t_id, succ] == self.ends[t_id, o_id]).OnlyEnforceIf(self.y[t_id, o_id, succ])
                     
                     # Strict topological rank progression
                     self.model.Add(self.u[t_id, succ] >= self.u[t_id, o_id] + 1).OnlyEnforceIf(self.y[t_id, o_id, succ])
@@ -248,71 +249,11 @@ class DisplibCPModel:
         # ---------------------------------------------------------
         # ROBUST TOPOLOGICAL SORT FOR VERIFIER
         # ---------------------------------------------------------
-        events.sort(key=lambda x: (x["time"], x["operation"]))
+        # We can directly use the topological rank `u` calculated by the CP-SAT solver!
+        # This completely guarantees no cyclic dependencies and matches the physical causality.
+        events.sort(key=lambda x: (x["time"], self.solver.Value(self.u[x["train"], x["operation"]])))
         
-        def get_res(tr, op):
-            return [r.resource for r in self.instance.trains[tr].operations[op].resources]
-            
-        from collections import defaultdict
-        time_groups = defaultdict(list)
-        train_prev_op = {}
-        
-        # Pre-calculate frees and allocates
-        for e in events:
-            time_groups[e["time"]].append(e)
-            e["frees"] = []
-            if e["train"] in train_prev_op:
-                e["frees"] = get_res(e["train"], train_prev_op[e["train"]])
-            e["allocates"] = get_res(e["train"], e["operation"])
-            train_prev_op[e["train"]] = e["operation"]
-            
-        final_events = []
-        for t in sorted(time_groups.keys()):
-            group = time_groups[t]
-            edges = {i: set() for i in range(len(group))}
-            in_degree = {i: 0 for i in range(len(group))}
-            
-            for i in range(len(group)):
-                for j in range(len(group)):
-                    if i == j: continue
-                    e1, e2 = group[i], group[j]
-                    
-                    # Rule 1: Same train ordering
-                    if e1["train"] == e2["train"] and e1["operation"] < e2["operation"]:
-                        edges[i].add(j)
-                        
-                    # Rule 2: e1 frees what e2 needs
-                    if any(r in e2["allocates"] for r in e1["frees"]):
-                        edges[i].add(j)
-                        
-            for i in edges:
-                for j in edges[i]:
-                    in_degree[j] += 1
-                    
-            queue = [i for i in range(len(group)) if in_degree[i] == 0]
-            topo = []
-            while queue:
-                queue.sort()
-                curr = queue.pop(0)
-                topo.append(curr)
-                for nbr in edges[curr]:
-                    in_degree[nbr] -= 1
-                    if in_degree[nbr] == 0:
-                        queue.append(nbr)
-                        
-            if len(topo) < len(group):
-                for i in range(len(group)):
-                    if i not in topo:
-                        topo.append(i)
-                        
-            for idx in topo:
-                # Keep only original keys
-                e = group[idx]
-                final_events.append({
-                    "operation": e["operation"],
-                    "time": e["time"],
-                    "train": e["train"]
-                })
+        final_events = events
                 
         events = final_events
         # ---------------------------------------------------------
