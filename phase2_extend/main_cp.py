@@ -31,7 +31,7 @@ def run_single_test(test_file, script_dir, is_batch=False):
             time_limit = 60
         else:
             cp_model.solver.parameters.log_search_progress = True
-            time_limit = 10
+            time_limit = 30
             
         print(f"-> CP Model constructed in {time.time() - start_time:.2f} s. Optimizing (Max {time_limit}s)...")
         
