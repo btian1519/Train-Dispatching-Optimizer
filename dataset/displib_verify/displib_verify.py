@@ -707,10 +707,52 @@ if __name__ == "__main__":
         unittest.main(argv=[sys.argv[0]], verbosity=2)
         sys.exit(0)
 
-    if len(sys.argv) not in [2,3]:
-        print(__doc__)
-        sys.exit(1)
+    if len(sys.argv) >= 3:
+        problemfilename = sys.argv[1]
+        solutionfilename = sys.argv[2]
+    else:
+        # GUI fallback
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            
+            print("=======================================================")
+            print("  🔍 DISPLIB Verifier (Interactive Mode)")
+            print("=======================================================")
+            print("Please select the PROBLEM JSON file in the dialog window...")
+            
+            problemfilename = filedialog.askopenfilename(
+                title="1. Select the DISPLIB Problem JSON file (e.g. smi_close_4.json)",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+            )
+            
+            if not problemfilename:
+                print("No problem file selected. Exiting.")
+                sys.exit(1)
+                
+            print(f"-> Selected Problem File: {os.path.basename(problemfilename)}")
+            
+            print("\nPlease select the SOLUTION JSON file in the dialog window...")
+            solutionfilename = filedialog.askopenfilename(
+                title="2. Select your Solution JSON file (e.g. solution_smi_close_4.json)",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+            )
+            
+            if not solutionfilename:
+                print("No solution file selected. Exiting.")
+                sys.exit(1)
+                
+            print(f"-> Selected Solution File: {os.path.basename(solutionfilename)}\n")
+            print("Starting Verification...")
+            print("=======================================================")
+            
+        except ImportError:
+            print("tkinter not available. Please pass arguments via command line.")
+            print(__doc__)
+            sys.exit(1)
 
-    problemfilename = sys.argv[1]
-    solutionfilename = sys.argv[2] if len(sys.argv) == 3 else None
     main(problemfilename, solutionfilename)
