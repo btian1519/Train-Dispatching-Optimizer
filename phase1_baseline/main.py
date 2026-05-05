@@ -36,7 +36,7 @@ def run_single_test(test_file, script_dir, is_batch=False, use_colleague_model=F
             time_limit = 60
         else:
             mip_model.model.setParam('OutputFlag', 1)
-            time_limit = 180
+            time_limit = 10
             
         print(f"-> Model constructed in {time.time() - start_time:.2f} s. Optimizing (Max {time_limit}s)...")
         
