@@ -6,11 +6,12 @@ from ortools.sat.python import cp_model
 from src.data_parser import DisplibInstance
 
 class DisplibCPModel:
-    def __init__(self, instance: DisplibInstance, horizon=86400*7): # Default 7 days max scheduling horizon
+    def __init__(self, instance: DisplibInstance, horizon=86400*7, blocked_resources=None): # Default 7 days max scheduling horizon
         self.instance = instance
         self.model = cp_model.CpModel()
         self.solver = cp_model.CpSolver()
         self.horizon = int(horizon)
+        self.blocked_resources = blocked_resources or {}
         
         # Core CP Variables
         self.x = {}  # x[train_id, op_id]: Boolean, 1 if operation is selected
@@ -97,6 +98,22 @@ class DisplibCPModel:
         # -----------------------------------------------------
         # 2. Resource Exclusivity (The elegant AddNoOverlap)
         # -----------------------------------------------------
+        
+        # Inject blocked resources (resource blackholes) from previous rolling horizon batches
+        for res_name, blocks in self.blocked_resources.items():
+            if res_name not in resource_intervals:
+                resource_intervals[res_name] = []
+            for i, (b_start, b_end) in enumerate(blocks):
+                # Ensure the block is within horizon to prevent domain errors
+                b_start = max(0, min(self.horizon, int(b_start)))
+                b_end = max(b_start, min(self.horizon * 2, int(b_end)))
+                
+                f_st = self.model.NewIntVar(b_start, b_start, f"fix_st_{res_name}_{i}")
+                f_dur = self.model.NewIntVar(b_end - b_start, b_end - b_start, f"fix_dur_{res_name}_{i}")
+                f_end = self.model.NewIntVar(b_end, b_end, f"fix_end_{res_name}_{i}")
+                f_iv = self.model.NewIntervalVar(f_st, f_dur, f_end, f"fix_iv_{res_name}_{i}")
+                resource_intervals[res_name].append(f_iv)
+
         # This absolutely annihilates the logic of Big-M!
         for res_name, intervals in resource_intervals.items():
             self.model.AddNoOverlap(intervals)
@@ -121,8 +138,10 @@ class DisplibCPModel:
             self.model.Add(z_ba == 0).OnlyEnforceIf(x_a.Not())
             self.model.Add(z_ba == 0).OnlyEnforceIf(x_b.Not())
             
-            op_a = self.instance.trains[t1].get_operation(o1)
-            op_b = self.instance.trains[t2].get_operation(o2)
+            
+            train_map = {t.id: t for t in self.instance.trains}
+            op_a = train_map[t1].get_operation(o1)
+            op_b = train_map[t2].get_operation(o2)
             
             for succ_a in op_a.successors:
                 # If Train 1 goes before Train 2 (z_ab==1), Train 1 must reach succ_a before Train 2 starts o2.

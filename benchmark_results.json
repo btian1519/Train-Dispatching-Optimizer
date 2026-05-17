@@ -1,0 +1,50 @@
+{
+  "smi_close_4": {
+    "gurobi_time": 0.01,
+    "gurobi_obj": 1506.0,
+    "cpsat_time": 0.227,
+    "cpsat_obj": 1506.0
+  },
+  "nor1_critical_4": {
+    "gurobi_time": 0.01,
+    "gurobi_obj": 0.0,
+    "cpsat_time": 0.11,
+    "cpsat_obj": 0.0
+  },
+  "nor1_critical_5": {
+    "gurobi_time": 60.05,
+    "gurobi_obj": 2677.0,
+    "cpsat_time": 60.1,
+    "cpsat_obj": 2677.0
+  },
+  "nor1_critical_1": {
+    "gurobi_time": 60.1,
+    "gurobi_obj": 2416.0,
+    "cpsat_time": 60.1,
+    "cpsat_obj": 2416.0
+  },
+  "nor1_critical_0": {
+    "gurobi_time": 120.0,
+    "gurobi_obj": null,
+    "cpsat_time": 60.18,
+    "cpsat_obj": 4133.0
+  },
+  "nor1_critical_2": {
+    "gurobi_time": 120.06,
+    "gurobi_obj": 3811.0,
+    "cpsat_time": 60.1,
+    "cpsat_obj": 3775.0
+  },
+  "smi_headway_4": {
+    "gurobi_time": 0.009,
+    "gurobi_obj": 24816.0,
+    "cpsat_time": 0.018,
+    "cpsat_obj": 24816.0
+  },
+  "nor2_1": {
+    "gurobi_time": 120.356,
+    "gurobi_obj": null,
+    "cpsat_time": 60.273,
+    "cpsat_obj": 7757.0
+  }
+}
