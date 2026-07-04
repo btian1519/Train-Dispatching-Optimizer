@@ -15,6 +15,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 MODE_STANDARD = "standard"  # Direct CP-SAT, global solve
 MODE_DISJOINT = "disjoint"  # Rolling Horizon – Disjoint / Greedy batches
 MODE_OVERLAP  = "overlap"   # Rolling Horizon – Overlapping / Look-ahead
+MODE_GREEDY   = "greedy"    # Train-by-Train Sequential Greedy
 
 
 def run_single_test(test_file, script_dir, is_batch=False, mode=MODE_STANDARD):
@@ -51,6 +52,14 @@ def run_single_test(test_file, script_dir, is_batch=False, mode=MODE_STANDARD):
                 time_limit_per_batch=30
             )
             return
+
+        # ------------------------------------------------------------------
+        # Mode: Greedy Baseline (run_greedy_baseline.py)
+        # ------------------------------------------------------------------
+        if mode == MODE_GREEDY:
+            from run_greedy_baseline import solve_greedy
+            out_file = os.path.join(out_dir, f"solution_greedy_{test_name}.json")
+            return solve_greedy(test_file, out_file)
 
         # ------------------------------------------------------------------
         # Mode: Standard CP-SAT – global solve, no decomposition
@@ -110,8 +119,11 @@ def pick_solver_mode() -> str:
     print("  │  [3]  Overlapping Rolling Horizon (Look-ahead, better obj) │")
     print("  │       Window = 10 trains, commit = 5, look-ahead = 5       │")
     print("  │       Trades ~2× time for improved solution quality         │")
+    print("  │                                                             │")
+    print("  │  [4]  Greedy Baseline (Train-by-Train, no look-ahead)      │")
+    print("  │       Extremely fast but likely to deadlock on dense tracks│")
     print("  └─────────────────────────────────────────────────────────────┘")
-    mode_input = input("  Enter your choice (1 / 2 / 3): ").strip()
+    mode_input = input("  Enter your choice (1 / 2 / 3 / 4): ").strip()
 
     if mode_input == '2':
         print("\n  -> Mode: Disjoint Rolling Horizon  [rolling_horizon.py]")
@@ -119,11 +131,36 @@ def pick_solver_mode() -> str:
     elif mode_input == '3':
         print("\n  -> Mode: Overlapping Rolling Horizon / Look-ahead  [rolling_horizon_overlap.py]")
         return MODE_OVERLAP
+    elif mode_input == '4':
+        print("\n  -> Mode: Greedy Baseline  [run_greedy_baseline.py]")
+        return MODE_GREEDY
     else:
         if mode_input != '1':
             print(f"\n  (Unrecognised input '{mode_input}', defaulting to Standard CP-SAT)")
         print("\n  -> Mode: Standard CP-SAT  [cp_model.py]")
         return MODE_STANDARD
+
+
+def run_batch(test_dir, script_dir, mode):
+    """Run one solver mode for every JSON instance in the given directory."""
+    test_files = sorted(glob.glob(os.path.join(test_dir, "*.json")))
+
+    if not test_files:
+        print(f"No instances found in {test_dir}")
+        return
+
+    print(f"\nFound {len(test_files)} instances. Starting batch run in mode: {mode}\n")
+    results = []
+    for index, test_file in enumerate(test_files, start=1):
+        print(f"\nBatch progress: [{index}/{len(test_files)}]")
+        result = run_single_test(test_file, script_dir, is_batch=True, mode=mode)
+        if isinstance(result, dict) and "status" in result:
+            results.append(result["status"])
+
+    if results:
+        solved = sum(status == "FEASIBLE" for status in results)
+        failed = len(results) - solved
+        print(f"\nBatch summary: {solved} feasible, {failed} failed.")
 
 
 def main():
@@ -136,28 +173,20 @@ def main():
     print("Please select an execution mode:")
     print("  [1]  Batch Testing   – run all standard test instances")
     print("  [2]  Single Dataset  – pick a file via GUI dialog")
+    print("  [3]  Batch All       – run all DISPLIB problem instances")
     print("=======================================================")
 
     try:
-        choice = input("Enter your choice (1 or 2): ").strip()
+        choice = input("Enter your choice (1 / 2 / 3): ").strip()
     except KeyboardInterrupt:
         print("\nExiting.")
         return
 
     if choice == '1':
-        # Batch mode always uses standard CP-SAT (small benchmark instances)
         test_dir = os.path.join(script_dir, "..", "dataset",
                                 "displib_instances_testing", "displib_instances_testing")
-        test_files = glob.glob(os.path.join(test_dir, "*.json"))
-
-        if not test_files:
-            print(f"No test instances found in {test_dir}")
-            return
-
-        print(f"\nFound {len(test_files)} test instances. "
-              "Starting OR-Tools CP-SAT batch tests...\n")
-        for test_file in sorted(test_files):
-            run_single_test(test_file, script_dir, is_batch=True, mode=MODE_STANDARD)
+        mode = pick_solver_mode()
+        run_batch(test_dir, script_dir, mode)
 
     elif choice == '2':
         root = tk.Tk()
@@ -184,6 +213,11 @@ def main():
 
         mode = pick_solver_mode()
         run_single_test(file_path, script_dir, is_batch=False, mode=mode)
+
+    elif choice == '3':
+        test_dir = os.path.join(script_dir, "..", "dataset", "displib_problems")
+        mode = pick_solver_mode()
+        run_batch(test_dir, script_dir, mode)
 
     else:
         print("Invalid choice. Exiting.")

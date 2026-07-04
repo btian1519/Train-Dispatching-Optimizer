@@ -2,14 +2,24 @@ import os
 import sys
 import time
 import glob
+import importlib
 import tkinter as tk
 from tkinter import filedialog
 from src.data_parser import DisplibInstance
 from src.mip_model import DisplibMipModel
-from src.mip_model_new import DisplibMipModel as DisplibMipModelNew
 from gurobipy import GRB
 
 sys.stdout.reconfigure(encoding='utf-8')
+
+
+def load_colleague_model_class():
+    for module_name in ("src.mip_model_new", "src.mip_model_bubbel"):
+        try:
+            return importlib.import_module(module_name).DisplibMipModel
+        except ModuleNotFoundError:
+            continue
+
+    raise ModuleNotFoundError("No colleague MIP model module found. Expected src.mip_model_new or src.mip_model_bubbel.")
 
 def run_single_test(test_file, script_dir, is_batch=False, use_colleague_model=False):
     filename = os.path.basename(test_file)
@@ -27,7 +37,8 @@ def run_single_test(test_file, script_dir, is_batch=False, use_colleague_model=F
         # Initialize Gurobi Engine
         start_time = time.time()
         if use_colleague_model:
-            mip_model = DisplibMipModelNew(instance, M=1000000)
+            colleague_model_class = load_colleague_model_class()
+            mip_model = colleague_model_class(instance, M=1000000)
         else:
             mip_model = DisplibMipModel(instance, M=1000000)
         

@@ -20,6 +20,10 @@ phase1_baseline/output/*
 !phase1_baseline/output/.gitkeep
 phase2_extend/output/*
 !phase2_extend/output/.gitkeep
+outputs/
+
+# Generated solution artifacts
+dataset/displib_solutions/greedy_*.json
 
 # Ignore scratch scripts or log files
 run_single.py

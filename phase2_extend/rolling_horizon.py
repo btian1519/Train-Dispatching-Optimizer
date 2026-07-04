@@ -6,7 +6,8 @@ from collections import defaultdict
 from src.data_parser import DisplibInstance
 from src.cp_model import DisplibCPModel
 
-def solve_rolling_horizon(dataset_path: str, output_path: str, batch_size: int = 10, time_limit_per_batch: int = 30):
+
+def solve_rolling_horizon(dataset_path: str, output_path: str, batch_size: int = 10, time_limit_per_batch: int = 30, global_time_limit: float = None):
     print(f"==================================================")
     print(f"[*] ROLLING HORIZON SOLVER INITIATED")
     print(f"Dataset: {os.path.basename(dataset_path)}")
@@ -34,6 +35,18 @@ def solve_rolling_horizon(dataset_path: str, output_path: str, batch_size: int =
     print("\n[2] Commencing Rolling Horizon Batches...")
     
     for i in range(0, total_trains, batch_size):
+        elapsed = time.time() - start_time
+        if global_time_limit is not None and elapsed >= global_time_limit:
+            print("    [!] Global time limit reached before completing all batches.")
+            if os.path.exists(output_path):
+                os.remove(output_path)
+            return {
+                "status": "TIME_LIMIT",
+                "objective_value": None,
+                "elapsed": elapsed,
+                "feasible": False,
+            }
+
         batch = sorted_trains[i:i+batch_size]
         batch_ids = [t.id for t in batch]
         print(f"\n---> Batch {i//batch_size + 1} | Trains: {batch_ids[0]} to {batch_ids[-1]} ({len(batch)} trains)")
@@ -65,13 +78,25 @@ def solve_rolling_horizon(dataset_path: str, output_path: str, batch_size: int =
         cp_model = DisplibCPModel(mini_instance, blocked_resources=merged_blocked_resources)
         
         # Solve
-        status = cp_model.optimize(time_limit=time_limit_per_batch)
+        remaining_global = None
+        if global_time_limit is not None:
+            remaining_global = max(0.001, global_time_limit - (time.time() - start_time))
+        local_time_limit = time_limit_per_batch if remaining_global is None else min(time_limit_per_batch, remaining_global)
+        status = cp_model.optimize(time_limit=local_time_limit)
         print(f"    Status: {status} | Sub-Objective: {cp_model.obj_val}")
         
         if status not in ["OPTIMAL", "FEASIBLE"]:
             print(f"    [!] ERROR: Failed to find a feasible solution for this batch!")
             print(f"    This can happen in greedy heuristics if previous blackholes completely block the route.")
-            return
+            elapsed = time.time() - start_time
+            if os.path.exists(output_path):
+                os.remove(output_path)
+            return {
+                "status": status,
+                "objective_value": None,
+                "elapsed": elapsed,
+                "feasible": False,
+            }
             
         total_objective += cp_model.obj_val
         
@@ -206,6 +231,13 @@ def solve_rolling_horizon(dataset_path: str, output_path: str, batch_size: int =
     print(f"Greedy Objective Value: {int(round(total_objective))}")
     print(f"Exported to: {output_path}")
     print(f"==================================================")
+    return {
+        "status": "FEASIBLE",
+        "objective_value": int(round(total_objective)),
+        "elapsed": elapsed,
+        "feasible": True,
+        "output_file": output_path,
+    }
 
 if __name__ == "__main__":
     # Test on one of the massive full instances!

@@ -73,7 +73,8 @@ def solve_overlapping_rolling_horizon(
     output_path: str,
     window_size: int = 10,
     step_size: int = 5,
-    time_limit_per_batch: int = 30
+    time_limit_per_batch: int = 30,
+    global_time_limit: float = None
 ):
     """
     Solves the train dispatching problem using the Overlapping Rolling Horizon
@@ -151,6 +152,18 @@ def solve_overlapping_rolling_horizon(
     cursor = 0  # index of the first UNCOMMITTED train
 
     while cursor < total_trains:
+        elapsed = time.time() - start_time
+        if global_time_limit is not None and elapsed >= global_time_limit:
+            print("\n    [!] Global time limit reached before all windows were committed.")
+            if os.path.exists(output_path):
+                os.remove(output_path)
+            return {
+                "status": "TIME_LIMIT",
+                "objective_value": None,
+                "elapsed": elapsed,
+                "feasible": False,
+            }
+
         batch_num += 1
 
         # Slice the window: [cursor, cursor + window_size)
@@ -183,13 +196,25 @@ def solve_overlapping_rolling_horizon(
 
         # Solve with CP-SAT
         cp_model = DisplibCPModel(mini_instance, blocked_resources=merged_bh)
-        status = cp_model.optimize(time_limit=time_limit_per_batch)
+        remaining_global = None
+        if global_time_limit is not None:
+            remaining_global = max(0.001, global_time_limit - (time.time() - start_time))
+        local_time_limit = time_limit_per_batch if remaining_global is None else min(time_limit_per_batch, remaining_global)
+        status = cp_model.optimize(time_limit=local_time_limit)
         print(f"     Status : {status} | Sub-Objective: {cp_model.obj_val}")
 
         if status not in ["OPTIMAL", "FEASIBLE"]:
             print(f"\n    [!] ERROR: INFEASIBLE in Batch {batch_num}! Cannot commit any trains.")
             print(f"    Hint: Try increasing --time or decreasing --step (more overlap).")
-            return
+            elapsed = time.time() - start_time
+            if os.path.exists(output_path):
+                os.remove(output_path)
+            return {
+                "status": status,
+                "objective_value": None,
+                "elapsed": elapsed,
+                "feasible": False,
+            }
 
         # -----------------------------------------------------------------
         # Extract results: only COMMIT the first `step_size` trains.
@@ -361,6 +386,13 @@ def solve_overlapping_rolling_horizon(
     print(f"    Greedy Objective Value : {int(round(total_objective))}")
     print(f"    Exported to            : {output_path}")
     print("=" * 60)
+    return {
+        "status": "FEASIBLE",
+        "objective_value": int(round(total_objective)),
+        "elapsed": elapsed,
+        "feasible": True,
+        "output_file": output_path,
+    }
 
 
 # =============================================================================
